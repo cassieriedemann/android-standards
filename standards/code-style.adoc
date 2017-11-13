@@ -178,7 +178,7 @@ Resource files in the values folder should be __plural__, e.g. `strings.xml`,
 
 == Java language rules
 
-These rules will be automatically applied by the link:../code-style/README.adoc[NerderyAndroid] codestyle.
+These rules will be automatically applied by the link:https://github.com/one20inc/android-code-style[One20Android] codestyle.
 
 === Don't ignore exceptions
 
@@ -481,28 +481,39 @@ import static android.view.View.GONE;
 
 === Logging guidelines
 
-Use Jake Wharton's https://github.com/JakeWharton/timber[Timber] library for
+Use Renee Vandervelde's https://github.com/InkApplications/android-logger[android-logger] library for
 logging.
 
-Use the logging methods provided by the `Timber` class to print out error
+Use the logging methods provided by the `Logger` interface to print out error
 messages or other information that may be useful for developers to identify
 issues:
 
-* `Timber.v(String message, Object... args)` (verbose)
-* `Timber.d(String message, Object... args)` (debug)
-* `Timber.i(String message, Object... args)` (information)
-* `Timber.w(String message, Object... args)` (warning)
-* `Timber.e(String message, Object... args)` (error)
+* `logger.trace(String message, Object... args)` (verbose)
+* `logger.debug(String message, Object... args)` (debug)
+* `logger.info(String message, Object... args)` (information)
+* `logger.warn(String message, Object... args)` (warning)
+* `logger.error(String message, Object... args)` (error)
 
 To log exceptions use the overloaded versions
-`Timber.*(Throwable t, String message, Object... args)`
+`logger.*(Throwable t, String message, Object... args)`
 
-All logs to logcat must be turned off for release builds. This can easily be
-done with `Timber.plant(Tree)` method, and only planting the debug tree in
-development builds.
+All logs to logcat must be turned off for release builds. This is already taken care of on Maps by 
+adding an EmptyLogger in the DebugModule in all release varints.
 
-It is recommended to have a `Tree` in release mode that will write logs
+It is recommended to have a `Logger` implimentation in release mode that will write logs
 to crash reporting services such as Firebase or Crashlytics.
+
+[source, java]
+----
+@Provides
+@Singleton
+Logger applicationLogger(@Debug Logger debugLogger, 
+                        FirebaseLogAdapter firebaseLog, 
+                        CrashlyticsLogger crashlyticsLogger) {
+    List<Logger> loggers = Arrays.asList(debugLogger, firebaseLog, crashlyticsLogger);
+    return new CompositeLogger(loggers);
+}
+----
 
 === Class member ordering
 

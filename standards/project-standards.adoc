@@ -12,27 +12,17 @@ https://www.ietf.org/rfc/rfc2119.txt[RFC 2119].
 
 == Location and Naming
 
-The Nerdery SHALL use git, specifically BitBucket Server for all projects unless otherwise
-requested by a client. Projects MUST be placed under the client they are for
-and project names MUST be written in the form of `mobile.{appName}.android`
-(all lower case) or if a library project `mobile.library.android.{libraryName}`.
-For example, the Hy-Vee flagship application is named `mobile.flagship.android`.
-This convention is in place so there is not confusion among the many projects
-that can be listed under a client in BitBucket.
+One20 MUST use git, specifically Github for all projects. 
+Project names MUST be written in the form of `android-{project_name}` (all lower case) 
+or if a library project `android-library-{libraryName}`.
 
 == Branching
 
 Android projects will use git-flow style of branching and merging. Checkout
 https://www.atlassian.com/git/tutorials/comparing-workflows#gitflow-workflow[Atlassian's Documentation]
 and this http://nvie.com/posts/a-successful-git-branching-model/[helpful guide]
-for more information. The default branch in Bitbucket MUST be set to develop
-to avoid confusion on which branch to work off of.
-
-To get a feature or hotfix branch merged into the develop branch a pull
-request SHALL be created through the BitBucket UI and be reviewed by at least
-one other developer. The reviewer SHOULD be the lead developer unless the
-lead developer delegates this task out to other team members. Consult with your
-lead for guidance on how they would like the review process to go.
+for more information. We are not using develop branches and we encourage individual developers to fork 
+the project repo they are working out of.
 
 In addition to having a review, the branch MUST pass a merge build from
 <<Continuous Integration>>. This is a build that confirms that the code once
@@ -58,7 +48,7 @@ Play Store.
 All release builds MUST be tagged. The proper format for a tag would be
 `v{major}.{minor}.{patch}`.
 
-TIP: Don't forget to push the tags to the remote (BitBucket).
+TIP: Don't forget to push the tags to the remote (Github).
 
 An example would be:
 ```
@@ -66,11 +56,224 @@ git tag -a v1.0.0 # -a is not required but RECOMMENDED
 git push origin v1.0.0
 ```
 
-It is REQUIRED that before creating a release, a release branch is made,
-so that bug fixes can be merged into the release branch while new features can
-be included in master. The release branch name MUST be in the following form,
-`release-{major}.{minor}.{patch}`. The release branch SHOULD be merged into
-`master` once the code has been pushed to the play store.
+== Release Branching Strategy
+
+The goal of this document is to outline a typical path for releases in git.
+
+We'll start with the following working tree:
+
+    A---B (master)
+
+Now we'll start working on a feature. At this point, we'll open up a topic
+branch to work on.
+
+    git checkout -b topic
+
+After doing some work in our topic branch, we make a commit and our working tree
+will look like the following:
+
+          C (topic)
+         /
+    A---B (master)
+
+Now our Topic is ready to be reviewed. We'll open up a Pull Request targeting
+the `master` branch for peer review. At this point someone points out a typo in
+a comment. We'll fix the issue and make a commit. Our local working Tree now
+looks like the following:
+
+          C---D (topic)
+         /
+    A---B (master)
+
+Before we push, we'll clean up these commits. Since the changes made in D were a
+mistake, they should have been in C to begin with. For a situation like this it
+makes sense to combine these commits together. We'll do that with an interactive
+rebase.
+
+    git rebase -i HEAD~2
+
+This will bring up an editor that looks something like the following:
+
+    pick C some message for changes in C
+    pick D Fixing typo in C
+
+    # Rebase 1f057e2..d965c4b onto 1f057e2
+
+This editor allows us to re-arrange, modify and squash commits. In this case we
+want to squash C up the tree into D. We do this by changing the word `pick` in
+front of the D commit to `squash` like the following:
+
+    pick C some message for changes in C
+    squash D Fixing typo in C
+
+    # Rebase 1f057e2..d965c4b onto 1f057e2
+
+After this, it will allow you to change the commit message, and afterwards we'll
+have a new commit in place of C and D. Our tree will look something like this:
+
+          E (topic)
+         /
+    A---B (master)
+
+Next we'll push our changes for approval. We've re-written the tree, evident by
+the fact that commit C no longer exists. So we'll need to do a force push here.
+We'll only want to force push our topic branch so we'll be specific in our push
+command:
+
+    git push --force origin topic
+
+Once our new Changes have been approved, we can merge these changes from github
+on the pull request. This is the equivalent of running the command from the
+master branch:
+
+    git merge --no-ff topic
+
+In either case, we'll end up with the following tree:
+
+          E
+         / \
+    A---B---F (master)
+
+Now we think our branch is ready for release. Since there are bound to be some
+QA fixes before it's actually released, we'll open up a separate branch for the
+minor release. This will allow us to work on new functionality in the `master`
+branch while we work on QA fixes in the release branch.
+When we do this, our tree will initially look like this, with master and the
+release branch pointing at the same commit:
+
+          E
+         / \
+    A---B---F (master / 1.6.x)
+
+Now we'll start working on a new feature. Something that will not be in our
+upcoming release, but we want to start working on. Just like before we'll open
+up a new topic branch and start committing to it:
+
+          E   G---H (new-topic)
+         / \ /
+    A---B---F (master / 1.6.x)
+
+Meanwhile, we'll also make a bugfix to the release branch fixing some QA issues.
+We'll branch off of the release branch `1.6.x` and start making changes.
+Our Tree may look like this:
+
+          E   G---H (new-topic)
+         / \ /
+    A---B---F (master)
+             \
+              I (1.6.x)
+
+Next we need to synchronize our release and master branch. This must happen for
+two man reasons.
+Firstly, This bug may also exist in our `master` branch, so we'll need to merge
+it upwards.
+Secondly, we want to ensure that all of these commits can be reached from our
+master working tree. This will become important when our release gets tagged
+later.
+Assuming there are no conflicts, this may be done without a pull request, since
+the changes will have already been approved for the release branch. We can
+merge our changes in the release branch by running:
+
+    git merge --no-ff 1.6.x
+
+Afterwards we'll have a commit tree like the following:
+
+         E   G---H (new-topic)
+        / \ /
+    A---B--F---J (master)
+            \ /
+             I (1.6.x)
+
+
+QA Has now approved our changes, and our release is being published. We'll mark
+the commit that was released with a tag.
+We'll do that by making a [signed tag][2] with the format `vX.Y.Z` and pushing
+it.
+
+    git tag -s v1.6.9
+
+Now our tree will look something like:
+
+          E   G---H (new-topic)
+         / \ /
+    A---B---F---J (master)
+             \ /
+              I (1.6.x)
+               \
+                * (Tag: v1.6.9)
+
+At this point we can also close our release branch `1.6.x`. If there are more
+bugfixes that are needed on that release, we can always re-open the branch using
+the tag.
+
+          E   G---H (new-topic)
+         / \ /
+    A---B---F---J (master)
+             \ /
+              I
+               \
+                * (Tag: v1.6.9)
+
+Now our new feature is finished. However, since our bugfix was merged at G,
+there have been changes in master since we started. We could merge these into
+our branches as well, but since those changes are not public yet, it makes more
+sense to do a rebase.
+This can be accomplished by running the following on our `new-topic` branch:
+
+    git pull --rebase origin master
+
+This will pick up our changes and re-apply them on the new tree. In this case,
+Where previously our topic started at commit F, it will now start at commit J:
+
+          E       G---H (new-topic)
+         / \     /
+    A---B---F---J (master)
+             \ /
+              I
+               \
+                * (Tag: v1.6.9)
+
+Now our topic is ready to be reviewed and merged. Just like before, we'll end up
+with a tree like:
+
+
+          E       G---H
+         / \     /     \
+    A---B---F---J-------K (master)
+             \ /
+              I
+               \
+                * (Tag: v1.6.9)
+
+Next the inevitable happens, and we need to do a bugfix on our release.
+We'll re-open the branch on the tag with the following command:
+
+    git checkout -b 1.6.x v1.6.x
+
+We'll make our changes and merge them upwards again ending with a working tree:
+
+
+          E       G---H
+         / \     /     \
+    A---B---F---J-------K---M (master)
+             \ /           /
+              I-----------L (1.6.x)
+               \
+                * (Tag: v1.6.9)
+
+Finally, just as before, when the changes are published, we'll tag the results
+and close our release branch again:
+
+
+          E       G---H
+         / \     /     \
+    A---B---F---J-------K---M (master)
+             \ /           /
+              I-----------L
+               \           \
+                \           * (Tag: v1.6.10)
+                 \
+                  * (Tag: v1.6.9)
 
 == Commit History
 
@@ -101,7 +304,7 @@ during the development process use rebase command to re-write history.
 Every project MUST have a README file. The README MUST be a text file, this
 file MAY use a markup language as long as it is easy to read without the use
 of a text processor. For example; plain text (.txt),
-https://confluence.atlassian.com/bitbucketserver/markdown-syntax-guide-776639995.html[markdown] (.md), or
+https://guides.github.com/features/mastering-markdown/[markdown] (.md), or
 http://asciidoctor.org/[asciidoctor] (.adoc) would all be fine choices.
 
 The README should contain all information possible about the project. It should
@@ -123,11 +326,9 @@ Place important project links here, anything and everything that is related to
 this project should be documented here.
 -->
 
-- [Project Page](https://mainframe.nerdery.com/project/page)
-- [Source](https://git.nerdery.com/projects/PROJ/repos/cool.project/browse)
-- [JIRA](https://issues.nerdery.com/projects/PROJ/summary)
-- [Bamboo](https://builds.nerderylabs.com/browse/PROJ)
-- [Buddy Build](https://dashboard.buddybuild.com/apps/1e5f9410f32f459aa9c3ca72a52cf6c1)
+- [Source](https://github.com/one20inc/cool-project)
+- [JIRA](one20inc.atlassian.net/insane-jira-url-to-project)
+- [Buddy Build](https://dashboard.buddybuild.com/apps/58d984594615aa0001d540fb)
 - [Fabric](https://fabric.io/android/apps/cool.project/)
 - [Firebase](https://console.firebase.google.com/project/cool-project/overview)
 - [Play Store](https://play.google.com/store/apps/details?id=cool.project.android)
@@ -182,41 +383,20 @@ case by case basis to see if they fit for the project.
 
 = Continuous Integration
 
-All Android Projects at The Nerdery MUST use CI.
+All Android Projects at The One20 MUST use CI.
 https://dashboard.buddybuild.com[Buddybuild] is a quick and
-convenient way to set this up with our BitBucket Server.
+convenient way to set this up with our Github organization.
 
-== Setting Up Buddybuild
-
-. Create a ticket to http://nrdry.com/sisreq[SIS] to allow
-Buddybuild to see your project. Buddybuild
-can not see projects by default to ensure our client's privacy. Projects with
-specific security requirements may not be able to use Buddybuild. Check
-with your project lead or project manager to ensure that you may use Buddybuild.
-. While you are waiting for your project to be exposed to Buddybuild follow
-these directions to get your
-http://docs.buddybuild.com/docs/connect-with-bitbucket-server[BitBucket Account integrated]
-with Buddybuild.
-. Once your project is visible to Buddybuild, follow
-http://docs.buddybuild.com/docs/selecting-an-app[these steps] to get
-your project setup and building.
-
-NOTE: It is RECOMMENDED to let Buddybuild handle the building of your release
-APKs and managing version numbers. This avoids confusion and ensures a single
-place where every build will be built in the exact same way.
+Buddybuild setup requires access to our Github organization, but after that setting it up 
+can be done https://dashboard.buddybuild.com/apps/wizard/build/select-repo[here]
 
 = Logging
 
 Logging is very important in be able to quickly debug applications. For this
-the reason The Nerdery Android Developers have adopted
-https://github.com/JakeWharton/timber[Timber] as the logger of choice.
-Timber allows to quickly log values to different streams instead of just logcat.
-Timber also allows for the type of logging to be easily switched from build
-type to build type.
-
-The Nerdery SHOULD use Timber in all new projects and is RECOMMENDED to be used
-in legacy projects when the legacy project does not have a logging alternative
-to logcat.
+the reason The One20 Android Developers have adopted
+https://github.com/InkApplications/android-logger[android-logger] as the logger of choice.
+This combined with our Dagger setup makes it easy to log to all sources at once, 
+and easily disable logging to logcat from release variants.
 
 Release builds MUST NOT log to logcat. This is a security concern as well as a
 performance issue. Logs SHOULD instead be sent to Crashlytics, Google Analytics,

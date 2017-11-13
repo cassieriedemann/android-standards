@@ -13,7 +13,7 @@ link:code-style/README.adoc[README] for more info.
 
 == standards
 
-Living documents which demonstrate best practices for The Nerdery's Android
+Living documents which demonstrate best practices for The One20's Android
 discipline. See them link:standards/index.adoc[here].
 
 == License
