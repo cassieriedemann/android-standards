@@ -5,12 +5,6 @@ To make a change or suggest an edit to these standards please fork this
 repository and create a pull request. To discuss possible changes please
 create an issue.
 
-== code-style
-
-Contains Android Studio code style templates and an install script for copying them
-to your Android Studio or IntelliJ config directory. See the
-link:code-style/README.adoc[README] for more info.
-
 == standards
 
 Living documents which demonstrate best practices for The One20's Android
